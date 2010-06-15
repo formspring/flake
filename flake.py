@@ -21,22 +21,22 @@ class IDHandler(tornado.web.RequestHandler):
     def get(self):
         curr_time = int(time() * 1000)
         
-        if curr_time < IDHandler.max_time:
+        if curr_time < self.max_time:
             # stop handling requests til we've caught back up
-            raise tornado.web.HTTPError(500, 'Clock went backwards! %d < %d' % (curr_time, IDHandler.max_time))
+            raise tornado.web.HTTPError(500, 'Clock went backwards! %d < %d' % (curr_time, self.max_time))
         
-        if curr_time > IDHandler.max_time:
-            IDHandler.sequence = 0
-            IDHandler.max_time = curr_time
+        if curr_time > self.max_time:
+            self.sequence = 0
+            self.max_time = curr_time
         
-        IDHandler.sequence += 1
-        if IDHandler.sequence > 4095:
+        self.sequence += 1
+        if self.sequence > 4095:
             # Sequence overflow, bail out 
-            raise tornado.web.HTTPError(500, 'Sequence Overflow: %d' % IDHandler.sequence)
+            raise tornado.web.HTTPError(500, 'Sequence Overflow: %d' % self.sequence)
         
-        uuid = (curr_time << 22) + (IDHandler.worker_id << 12) + IDHandler.sequence
+        generated_id = (curr_time << 22) + (self.worker_id << 12) + self.sequence
         self.set_header("Content-Type", "text/plain")
-        self.write(str(uuid))
+        self.write(str(generated_id))
 
 
 def main():
