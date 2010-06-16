@@ -1,0 +1,17 @@
+Flake is an implementation of Twitter's Snowflake in Tornado. "Snowflake is a network service for generating unique ID numbers at high scale with some simple guarantees."
+
+@see http://github.com/twitter/snowflake
+
+Usage:
+./flake.py --worker_id=N
+
+Where worker_id N is a globally unique integer between 0 and 1023. 
+
+Example supervisord conf for a two core machine:
+
+[program:flake]
+command=/var/www/flake/flake.py --logging=warning --worker_id=%(process_num)d --port=80%(process_num)02d
+process_name=%(program_name)s%(process_num)d
+numprocs=2
+numprocs_start=0 ; be sure to set this offest such that worker_id is unique across all machines in your Flake cluster
+autostart=true
