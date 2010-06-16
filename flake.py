@@ -37,6 +37,7 @@ class IDHandler(tornado.web.RequestHandler):
         generated_id = (curr_time << 22) + (self.worker_id << 12) + self.sequence
         self.set_header("Content-Type", "text/plain")
         self.write(str(generated_id))
+        self.flush() # avoid ETag, etc generation 
 
 
 def main():
