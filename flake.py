@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import json
 import sys
 import tornado.httpserver
 import tornado.ioloop
@@ -36,23 +37,53 @@ class IDHandler(tornado.web.RequestHandler):
     def get(self):
         curr_time = int(time() * 1000)
         
-        if curr_time < self.max_time:
+        if curr_time < IDHandler.max_time:
             # stop handling requests til we've caught back up
-            raise tornado.web.HTTPError(500, 'Clock went backwards! %d < %d' % (curr_time, self.max_time))
+            StatsHandler.errors += 1
+            raise tornado.web.HTTPError(500, 'Clock went backwards! %d < %d' % (curr_time, IDHandler.max_time))
         
-        if curr_time > self.max_time:
-            self.sequence = 0
-            self.max_time = curr_time
+        if curr_time > IDHandler.max_time:
+            IDHandler.sequence = 0
+            IDHandler.max_time = curr_time
         
-        self.sequence += 1
-        if self.sequence > 4095:
+        IDHandler.sequence += 1
+        if IDHandler.sequence > 4095:
             # Sequence overflow, bail out 
-            raise tornado.web.HTTPError(500, 'Sequence Overflow: %d' % self.sequence)
+            StatsHandler.errors += 1
+            raise tornado.web.HTTPError(500, 'Sequence Overflow: %d' % IDHandler.sequence)
         
-        generated_id = ((curr_time - self.epoch) << 22) + (self.worker_id << 12) + self.sequence
+        generated_id = ((curr_time - IDHandler.epoch) << 22) + (IDHandler.worker_id << 12) + IDHandler.sequence
+        
         self.set_header("Content-Type", "text/plain")
         self.write(str(generated_id))
         self.flush() # avoid ETag, etc generation 
+        
+        StatsHandler.generated_ids += 1
+
+
+class StatsHandler(tornado.web.RequestHandler):
+    generated_ids = 0
+    errors = 0
+    flush_time = time()
+    
+    def get(self):
+        stats = {
+            'timestamp': time(),
+            'generated_ids': StatsHandler.generated_ids,
+            'errors': StatsHandler.errors,
+            'max_time_ms': IDHandler.max_time,
+            'worker_id': IDHandler.worker_id,
+            'time_since_flush': time() - StatsHandler.flush_time,
+        }
+        
+        # Get values and reset
+        if self.get_argument('flush', False):
+            StatsHandler.generated_ids = 0
+            StatsHandler.errors = 0
+            StatsHandler.flush_time = time()
+        
+        self.set_header("Content-Type", "text/plain")
+        self.write(json.dumps(stats))
 
 
 def main():
@@ -70,6 +101,7 @@ def main():
     
     application = tornado.web.Application([
         (r"/", IDHandler),
+        (r"/stats", StatsHandler),
     ], static_path="./static")
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(options.port)
