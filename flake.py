@@ -31,6 +31,7 @@ class IDHandler(tornado.web.RequestHandler):
     max_time = int(time() * 1000)
     sequence = 0
     worker_id = False
+    epoch = 1259193600000 # 2009-11-26
     
     def get(self):
         curr_time = int(time() * 1000)
@@ -48,7 +49,7 @@ class IDHandler(tornado.web.RequestHandler):
             # Sequence overflow, bail out 
             raise tornado.web.HTTPError(500, 'Sequence Overflow: %d' % self.sequence)
         
-        generated_id = (curr_time << 22) + (self.worker_id << 12) + self.sequence
+        generated_id = ((curr_time - self.epoch) << 22) + (self.worker_id << 12) + self.sequence
         self.set_header("Content-Type", "text/plain")
         self.write(str(generated_id))
         self.flush() # avoid ETag, etc generation 
